@@ -1,33 +1,55 @@
-package check_template
+package mysql
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-// Schema is a custom defined struct that will hold the check configuration
 type Schema struct {
-	Target string `json:"target"` // Make sure to use the json tags to define the key in the config
-	Port   int    `json:"port"`
-
-	// Add any additional fields that you want to pass in as config
+	Target   string `json:"target"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+	Query    string `json:"query"`
 }
 
-// Run is the function that will get called to run an instance of a check
 func Run(ctx context.Context, config string) error {
-	// Define a new Schema
 	schema := Schema{}
 
-	// Unmarshal the config to the Schema
 	err := json.Unmarshal([]byte(config), &schema)
 	if err != nil {
 		return err
 	}
 
-	// Custom logic to run the check
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", schema.Username, schema.Password, schema.Target, schema.Port, schema.Database)
 
-	fmt.Println("Running check with target:", schema.Target, "and port:", schema.Port)
+	conn, err := sql.Open("mysql", connStr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to mysql server: %w", err)
+	}
+	defer conn.Close()
+
+	err = conn.Ping()
+	if err != nil {
+		return fmt.Errorf("failed to ping mysql server: %w", err)
+	}
+
+	if schema.Query != "" {
+		rows, err := conn.Query(schema.Query)
+		if err != nil {
+			return fmt.Errorf("failed to execute query: %w", err)
+		}
+		defer rows.Close()
+
+		if !rows.Next() {
+			return fmt.Errorf("no rows returned from query: %q", schema.Query)
+		}
+	}
 
 	return nil
 }
