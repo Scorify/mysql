@@ -10,12 +10,12 @@ import (
 )
 
 type Schema struct {
-	Target   string `json:"target"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Database string `json:"database"`
-	Query    string `json:"query"`
+	Server   string `key:"target"`
+	Port     int    `key:"port" default:"3306"`
+	Username string `key:"username"`
+	Password string `key:"password"`
+	Database string `key:"database"`
+	Query    string `key:"query"`
 }
 
 func Run(ctx context.Context, config string) error {
