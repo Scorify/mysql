@@ -3,10 +3,10 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/scorify/schema"
 )
 
 type Schema struct {
@@ -50,14 +50,14 @@ func Validate(config string) error {
 }
 
 func Run(ctx context.Context, config string) error {
-	schema := Schema{}
+	conf := Schema{}
 
-	err := json.Unmarshal([]byte(config), &schema)
+	err := schema.Unmarshal([]byte(config), &conf)
 	if err != nil {
 		return err
 	}
 
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", schema.Username, schema.Password, schema.Target, schema.Port, schema.Database)
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", conf.Username, conf.Password, conf.Server, conf.Port, conf.Database)
 
 	conn, err := sql.Open("mysql", connStr)
 	if err != nil {
@@ -70,15 +70,15 @@ func Run(ctx context.Context, config string) error {
 		return fmt.Errorf("failed to ping mysql server: %w", err)
 	}
 
-	if schema.Query != "" {
-		rows, err := conn.Query(schema.Query)
+	if conf.Query != "" {
+		rows, err := conn.Query(conf.Query)
 		if err != nil {
 			return fmt.Errorf("failed to execute query: %w", err)
 		}
 		defer rows.Close()
 
 		if !rows.Next() {
-			return fmt.Errorf("no rows returned from query: %q", schema.Query)
+			return fmt.Errorf("no rows returned from query: %q", conf.Query)
 		}
 	}
 
