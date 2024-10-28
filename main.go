@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/scorify/schema"
@@ -57,7 +59,20 @@ func Run(ctx context.Context, config string) error {
 		return err
 	}
 
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", conf.Username, conf.Password, conf.Server, conf.Port, conf.Database)
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return fmt.Errorf("context deadline is not set")
+	}
+
+	connStr := fmt.Sprintf(
+		"%s:%s@tcp(%s:%d)/%s?timeout=%ds",
+		conf.Username,
+		conf.Password,
+		conf.Server,
+		conf.Port,
+		conf.Database,
+		int(math.Floor(time.Until(deadline).Seconds())),
+	)
 
 	conn, err := sql.Open("mysql", connStr)
 	if err != nil {
@@ -65,13 +80,16 @@ func Run(ctx context.Context, config string) error {
 	}
 	defer conn.Close()
 
-	err = conn.Ping()
+	conn.SetMaxIdleConns(-1)
+	conn.SetMaxOpenConns(1)
+
+	err = conn.PingContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ping mysql server: %w", err)
 	}
 
 	if conf.Query != "" {
-		rows, err := conn.Query(conf.Query)
+		rows, err := conn.QueryContext(ctx, conf.Query)
 		if err != nil {
 			return fmt.Errorf("failed to execute query: %w", err)
 		}
